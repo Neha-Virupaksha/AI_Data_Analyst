@@ -1,0 +1,5 @@
+langgraph==0.2.60
+langchain-core==0.3.28
+langchain-ollama==0.2.2
+pandas==2.2.3
+matplotlib==3.9.2
