@@ -1,87 +1,110 @@
-# AI Data Analyst — Step 2: Critic + Retry Loop
+🤖 AI Data Analyst
 
-Planner → Coder → Executor → Critic → (retry Coder up to 3 attempts, or) → Writer.
-Every attempt (code, error, success/fail) is logged to `analyst.db` (SQLite) in the
-`run_attempts` table.
+Ask questions about a CSV in plain English — get the analysis, code, chart, and explanation.
 
-If the Coder writes buggy code — like forgetting to select a column before summing,
-which produces `TypeError: datetime64 type does not support operation 'sum'` — the
-Critic catches the error, feeds it back to the Coder along with the broken code, and
-the Coder gets another shot at fixing it. Up to 3 attempts total before giving up and
-explaining the failure instead.
+An end-to-end agentic data analysis application that converts natural-language questions into executable Python/pandas analysis using a local LLM.
 
-Still no API layer or dashboard yet — this step is still `run_slice.py` on the
-command line. That's next.
+✨ How it works
 
-## Setup
+User Question
+     ↓
+  Planner
+     ↓
+   Coder
+     ↓
+  Executor
+     ↓
+   Critic ──→ Retry (up to 3 attempts)
+     ↓
+   Writer
+     ↓
+Chart + Plain-English Answer
 
-**1. Install Ollama** (if you haven't already)
+The workflow is orchestrated with LangGraph and uses Ollama + Qwen2.5-Coder 7B for local LLM inference.
 
-```bash
-brew install ollama
-```
+🚀 Key Features
 
-**2. Start Ollama and pull the model** (in a separate terminal tab, leave it running)
+🧠 Multi-agent analysis — Planner, Coder, Executor, Critic & Writer
 
-```bash
-ollama serve
-```
+🔄 Self-correcting workflow — failed generated code is retried with execution feedback
 
-In your main terminal:
+📊 Automatic visualizations — bar, line, pie and scatter charts
 
-```bash
-ollama pull qwen2.5-coder:7b
-```
+🛡️ Basic execution isolation — subprocess execution, import allowlist and 30s timeout
 
-This is a ~4.7GB download. If it feels slow or your Mac struggles once we're running
-the full graph, switch to the lighter quantization mentioned in the spec:
+🗃️ Run history — SQLite stores datasets, analyses, attempts and results
 
-```bash
-ollama pull qwen2.5-coder:7b-instruct-q4_0
-```
+🖥️ Web UI + API — Gradio dashboard backed by FastAPI
 
-and change the `model=` line in `agents/llm.py` to match.
+🔒 Local inference — CSV analysis can run without an external LLM API
 
-**3. Create a virtual environment and install dependencies**
+🛠️ Tech Stack
 
-```bash
+Python · LangGraph · LangChain · Ollama · Qwen2.5-Coder · Pandas · NumPy · Matplotlib · FastAPI · Gradio · SQLite
+
+📁 Project Structure
+
+ai-data-analyst/
+├── agents/       # Planner, Coder, Executor, Critic, Writer
+├── sandbox/      # Code execution + chart helpers + schema inference
+├── db/           # SQLite database layer
+├── data/         # Sample CSV
+├── graph.py      # LangGraph workflow
+├── main.py       # FastAPI backend
+├── app.py        # Gradio UI
+└── run_slice.py  # CLI workflow runner
+
+⚙️ Run Locally
+
+git clone <YOUR_REPOSITORY_URL>
 cd ai-data-analyst
+
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-```
+pip install fastapi uvicorn gradio requests pillow pydantic python-multipart
 
-## Run it
+Install and start Ollama, then pull the model:
 
-Make sure `ollama serve` is running in its own terminal tab, then:
+ollama serve
+ollama pull qwen2.5-coder:7b
 
-```bash
-python run_slice.py "What's driving the drop in Q2 revenue?"
-```
+Start the API:
 
-This will:
-1. Call the Planner to break the question into steps
-2. Call the Coder to write pandas/matplotlib code
-3. Run that code in a sandboxed subprocess
-4. Call the Writer to summarize the result in plain English
-5. Print every stage's output to your terminal, and save a chart to `charts/`
+uvicorn main:app --reload --port 8001
 
-The sample dataset (`data/sample_sales.csv`) has revenue dropping in Q2 across all
-regions, so this question should give the model something real to find.
+In another terminal:
 
-## What to expect / how to debug
+python app.py
 
-- First run will be slow (model loading + 3 LLM calls). Later runs should be faster
-  once Ollama has the model warm.
-- If the Coder writes code that errors out, you'll see `EXECUTION RESULT: FAILED: ...`
-  printed — that's expected right now, since there's no retry loop yet. That's exactly
-  what step 2 (Critic + retry) fixes.
-- If you get an import error on `langchain_ollama`, double check `ollama serve` is
-  actually running (`curl http://localhost:11434` should respond).
+Then open the Gradio URL shown in the terminal.
 
-## Once this works
+🔌 API
 
-Report back what you see — especially if the Coder's code is failing a lot, since
-that tells us whether qwen2.5-coder:7b needs prompt tightening before we build the
-retry loop around it. Then we move to step 2: Critic node + retry loop (max 3
-attempts), logging each attempt.
+Endpoint
+
+Purpose
+
+POST /upload
+
+Upload a CSV and infer its schema
+
+POST /analyze
+
+Ask a natural-language analysis question
+
+GET /report/{run_id}
+
+Retrieve a completed analysis
+
+GET /history?dataset_id=...
+
+View previous analyses
+
+🎯 Why this project?
+
+The goal is to move beyond a simple "LLM → answer" application and build a traceable agentic workflow where the system:
+
+plans → generates code → executes → validates → retries → explains.
+
+Note: The current subprocess sandbox is a basic execution boundary, not a production-grade security sandbox.
